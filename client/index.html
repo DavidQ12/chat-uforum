@@ -8,7 +8,6 @@
     <script type="module">
         import { io } from "https://cdn.socket.io/4.3.2/socket.io.esm.min.js";
 
-        // Lista de usuarios predefinidos
         const usernames = ["Patrick", "Ademir", "Pleitez", "David", "Khaterine"];
         const username = usernames[Math.floor(Math.random() * usernames.length)];
 
@@ -21,22 +20,54 @@
         document.addEventListener("DOMContentLoaded", () => {
             const form = document.getElementById("form");
             const input = document.getElementById("messageInput");
+            const imageInput = document.getElementById("imageInput");
             const messages = document.getElementById("messages");
 
-            socket.on("chat message", (msg, id, username) => {
+            socket.on("chat message", ({ text, image, username }) => {
                 const item = document.createElement("li");
-                item.textContent = `${username}: ${msg}`;
-                item.setAttribute("data-id", id);
+                if (image) {
+                    const img = document.createElement("img");
+                    img.src = image;
+                    img.alt = "Imagen enviada";
+                    img.style.maxWidth = "100%";
+                    item.appendChild(img);
+                }
+                if (text) {
+                    const textNode = document.createTextNode(`${username}: ${text}`);
+                    item.appendChild(textNode);
+                }
                 messages.appendChild(item);
                 messages.scrollTop = messages.scrollHeight; // Scroll
             });
 
-            form.addEventListener("submit", (e) => {
+            form.addEventListener("submit", async (e) => {
                 e.preventDefault();
-                if (input.value) {
-                    socket.emit("chat message", input.value);
-                    input.value = "";
+
+                // Subir imagen 
+                let imageUrl = null;
+                const file = imageInput.files[0];
+                if (file) {
+                    const formData = new FormData();
+                    formData.append("image", file);
+
+                    const response = await fetch("/upload", {
+                        method: "POST",
+                        body: formData,
+                    });
+                    if (response.ok) {
+                        const data = await response.json();
+                        imageUrl = data.imageUrl;
+                    }
                 }
+
+                // Enviar mensaje con texto e imagen
+                socket.emit("chat message", {
+                    text: input.value,
+                    image: imageUrl,
+                });
+
+                input.value = "";
+                imageInput.value = null;
             });
         });
     </script>
@@ -120,48 +151,53 @@
             background-color: #fafafa;
         }
 
-        #messageInput:focus {
+        #messageInput
+        {
             outline: none;
-            border-color: #009688;
-            box-shadow: 0 0 0 2px rgba(0, 150, 136, 0.3);
         }
 
-        #form > button {
-            background-color: #009688;
-            color: white;
+        #imageInput {
+            display: none;
+        }
+
+        label {
+            cursor: pointer;
+            font-size: 20px;
+            margin-right: 8px;
+        }
+
+        button {
+            background-color: #007bff;
             border: none;
-            padding: 12px 16px;
-            border-radius: 50%;
+            color: white;
+            padding: 10px 16px;
+            border-radius: 20px;
+            font-size: 16px;
             cursor: pointer;
         }
 
-        #form > button:hover {
-            background-color: #00796b;
+        button:hover {
+            background-color: #0056b3;
         }
 
-        #form > button:active {
-            background-color: #004d40;
+        img {
+            max-width: 100%;
+            border-radius: 8px;
         }
     </style>
 </head>
+<header>
+    <h1>Uforum</h1>
+</header>
 <body>
-    <header>
-        <h1>Uforum</h1>
-    </header>
-
-    <main>
-        <section id="chat">
-            <ul id="messages"></ul>
-        </section>
-        
+    <div id="chat">
+        <ul id="messages"></ul>
         <form id="form">
             <input type="text" id="messageInput" class="form-control" placeholder="Escribe un mensaje..." />
-            <button type="submit" class="btn">
-                Enviar
-            </button>
+            <label for="imageInput">📎</label>
+            <input type="file" id="imageInput" accept="image/*" />
+            <button type="submit" class="btn">Enviar</button>
         </form>
-    </main>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    </div>
 </body>
 </html>
